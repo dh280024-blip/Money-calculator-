@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="bn">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Money Calculator</title>
+  <style>
+    :root{
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+      --bg: #f4f6f8;
+      --panel:#ffffff;
+      --accent:#0f62fe;
+      --muted:#6b7280;
+      --danger:#ef4444;
+    }
+    body{
+      margin:0;
+      min-height:100vh;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      background:linear-gradient(180deg,#e9eefb, #f4f6f8);
+      padding:20px;
+    }
+    .calc {
+      width:360px;
+      max-width:100%;
+      background:var(--panel);
+      border-radius:14px;
+      box-shadow:0 8px 30px rgba(21,32,80,0.08);
+      overflow:hidden;
+    }
+    .display {
+      padding:20px;
+      background:#f7fafc;
+      text-align:right;
+    }
+    .secondary {
+      color:var(--muted);
+      font-size:14px;
+    }
+    .value {
+      font-size:28px;
+      font-weight:600;
+      margin-top:6px;
+      word-break:break-all;
+    }
+    .pad {
+      display:grid;
+      grid-template-columns:repeat(4,1fr);
+      gap:10px;
+      padding:16px;
+      background:transparent;
+    }
+    button {
+      padding:14px;
+      border-radius:10px;
+      border:0;
+      font-size:18px;
+      cursor:pointer;
+      box-shadow:0 1px 0 rgba(0,0,0,0.03);
+    }
+    .btn-opp { background:#f3f4f6; color:#111827; }
+    .btn-num { background:#fff; }
+    .btn-ac { background:var(--danger); color:white; }
+    .btn-eq { background:var(--accent); color:white; grid-column:span 2; }
+    .tiny { font-size:14px; padding:10px; }
+    @media (max-width:420px){ .value{font-size:22px} button{padding:12px;font-size:16px} }
+  </style>
+</head>
+<body>
+  <div class="calc" role="application" aria-label="Money calculator">
+    <div class="display" id="display">
+      <div class="secondary">Money Calculator</div>
+      <div class="value" id="value">0</div>
+    </div>
+
+    <div class="pad" id="pad">
+      <button class="btn-ac tiny" id="clear">C</button>
+      <button class="btn-opp tiny" id="percent">%</button>
+      <button class="btn-opp tiny" id="back">&larr;</button>
+      <button class="btn-opp tiny" data-op="/">÷</button>
+
+      <button class="btn-num" data-num="7">7</button>
+      <button class="btn-num" data-num="8">8</button>
+      <button class="btn-num" data-num="9">9</button>
+      <button class="btn-opp tiny" data-op="*">×</button>
+
+      <button class="btn-num" data-num="4">4</button>
+      <button class="btn-num" data-num="5">5</button>
+      <button class="btn-num" data-num="6">6</button>
+      <button class="btn-opp tiny" data-op="-">−</button>
+
+      <button class="btn-num" data-num="1">1</button>
+      <button class="btn-num" data-num="2">2</button>
+      <button class="btn-num" data-num="3">3</button>
+      <button class="btn-opp tiny" data-op="+">+</button>
+
+      <button class="btn-num" data-num="0" style="grid-column:span 2;">0</button>
+      <button class="btn-num" data-num=".">.</button>
+      <button class="btn-eq" id="equals">=</button>
+    </div>
+  </div>
+
+  <script>
+    // Simple money-aware calculator
+    const valueEl = document.getElementById('value');
+    let current = '';    // current input as string
+    let expr = '';       // full expression string for eval
+    let lastResult = null;
+
+    // Helper: format number as currency-like string (commas, 2 decimals optional)
+    function formatForDisplay(s){
+      if (s === '' || s === undefined) return '0';
+      // if expression (contains operator) just show s
+      // try to parse as number
+      const n = Number(s.replace(/,/g,''));
+      if (isNaN(n)) return s;
+      // show up to 2 decimal places if needed, else no decimals
+      const parts = n.toFixed(2).split('.');
+      if (parts[1] === '00') {
+        // show integer with thousand separators
+        return Intl.NumberFormat('en-US').format(Math.trunc(n));
+      } else {
+        // show two decimals
+        return Intl.NumberFormat('en-US', {minimumFractionDigits:2, maximumFractionDigits:2}).format(n);
+      }
+    }
+
+    function updateDisplay(){
+      if (current !== '') {
+        valueEl.textContent = formatForDisplay(current);
+      } else if (lastResult != null) {
+        valueEl.textContent = formatForDisplay(String(lastResult));
+      } else {
+        valueEl.textContent = '0';
+      }
+    }
+
+    // Numeric button click
+    document.getElementById('pad').addEventListener('click', e=>{
+      const num = e.target.dataset.num;
+      const op  = e.target.dataset.op;
+      if (num !== undefined){
+        // prevent multiple decimals
+        if (num === '.' && current.includes('.')) return;
+        // prevent leading zeros like "00"
+        if (current === '0' && num !== '.') current = num;
+        else current = current + num;
+        updateDisplay();
+      } else if (op !== undefined) {
+        // push current into expression
+        if (current !== '') {
+          expr += current;
+          current = '';
+        }
+        // avoid double operators: replace last if operator
+        if (/[+\-*/]$/.test(expr)) expr = expr.slice(0, -1) + op;
+        else expr += op;
+        // show last result if any
+        valueEl.textContent = op;
+      }
+    });
+
+    // Clear
+    document.getElementById('clear').addEventListener('click', ()=>{
+      current = '';
+      expr = '';
+      lastResult = null;
+      updateDisplay();
+    });
+
+    // Backspace
+    document.getElementById('back').addEventListener('click', ()=>{
+      if (current.length) current = current.slice(0,-1);
+      updateDisplay();
+    });
+
+    // Percent: apply percent to current or last result (as number /100)
+    document.getElementById('percent').addEventListener('click', ()=>{
+      if (current !== '') {
+        const n = Number(current.replace(/,/g,''));
+        if (!isNaN(n)) {
+          current = String(n / 100);
+          updateDisplay();
+        }
+      } else if (lastResult !== null) {
+        lastResult = lastResult / 100;
+        updateDisplay();
+      }
+    });
+
+    // Equals
+    document.getElementById('equals').addEventListener('click', ()=>{
+      try {
+        if (current !== '') expr += current;
+        // simple safety: only digits, ., and + - * / ( ) allowed
+        if (!/^[0-9+\-*/().\s]+$/.test(expr)) {
+          valueEl.textContent = 'Invalid';
+          expr = '';
+          current = '';
+          return;
+        }
+        // Evaluate
+        const result = Function('"use strict";return (' + expr + ')')();
+        lastResult = result;
+        current = String(result);
+        expr = '';
+        updateDisplay();
+      } catch(err){
+        valueEl.textContent = 'Error';
+        current = '';
+        expr = '';
+      }
+    });
+
+    // Keyboard support (numbers, operators, Enter, Backspace)
+    window.addEventListener('keydown', (e)=>{
+      if (/^[0-9]$/.test(e.key)) {
+        const btn = document.querySelector(`[data-num="${e.key}"]`);
+        if (btn) btn.click();
+      } else if (e.key === '.') {
+        document.querySelector(`[data-num="."]`).click();
+      } else if (e.key === 'Enter' || e.key === '=') {
+        document.getElementById('equals').click();
+      } else if (e.key === 'Backspace') {
+        document.getElementById('back').click();
+      } else if (['+','-','/','*'].includes(e.key)) {
+        // map / * + -
+        const mapped = e.key;
+        const btn = document.querySelector(`[data-op="${mapped}"]`);
+        if (btn) btn.click();
+      } else if (e.key === '%') {
+        document.getElementById('percent').click();
+      } else if (e.key.toLowerCase() === 'c') {
+        document.getElementById('clear').click();
+      }
+    });
+
+    // initial
+    updateDisplay();
+  </script>
+</body>
+</html>
